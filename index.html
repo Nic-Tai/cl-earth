@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Earth Check-in</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 3D Earth Container -->
+        <div id="earth-container"></div>
+
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <!-- Header -->
+            <header id="header">
+                <h1>🌍 Earth Explorer</h1>
+                <p class="subtitle">Check in to amazing destinations around the world</p>
+            </header>
+
+            <!-- Home Location Panel -->
+            <div id="home-panel" class="panel">
+                <h3>📍 Your Home</h3>
+                <select id="home-select">
+                    <option value="">Select your home city...</option>
+                </select>
+                <div id="home-info" class="location-info hidden"></div>
+            </div>
+
+            <!-- Destinations Panel -->
+            <div id="destinations-panel" class="panel">
+                <h3>✈️ Destinations</h3>
+                <div id="destinations-list"></div>
+            </div>
+
+            <!-- Check-in Status -->
+            <div id="checkin-status" class="panel hidden">
+                <h3>🎉 Checked In!</h3>
+                <div id="checkin-details"></div>
+                <button id="close-checkin" class="btn">Close</button>
+            </div>
+        </div>
+
+        <!-- Flight Info Overlay (shown during animation) -->
+        <div id="flight-info" class="hidden">
+            <div class="flight-card">
+                <div class="flight-header">
+                    <span id="flight-from">---</span>
+                    <span class="flight-icon">✈️</span>
+                    <span id="flight-to">---</span>
+                </div>
+                <div class="flight-progress">
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                </div>
+                <div id="flight-distance" class="flight-distance"></div>
+            </div>
+        </div>
+
+        <!-- Landmark Info Popup -->
+        <div id="landmark-popup" class="hidden">
+            <div class="popup-content">
+                <button id="popup-close" class="popup-close">&times;</button>
+                <h2 id="popup-title"></h2>
+                <p id="popup-description"></p>
+                <div id="popup-landmark-preview"></div>
+                <button id="popup-checkin" class="btn btn-primary">Check In Here!</button>
+            </div>
+        </div>
+
+        <!-- Loading Screen -->
+        <div id="loading-screen">
+            <div class="loader">
+                <div class="earth-loader"></div>
+                <p>Loading Earth...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- Main Application -->
+    <script src="app.js" type="module"></script>
+</body>
+</html>
