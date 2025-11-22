@@ -266,115 +266,76 @@ function onWindowResize() {
 function createEarth() {
     const textureLoader = new THREE.TextureLoader();
 
-    // Earth geometry
-    const earthGeometry = new THREE.SphereGeometry(1.5, 64, 64);
+    // Earth geometry - higher poly count for smoother sphere
+    const earthGeometry = new THREE.SphereGeometry(1.5, 128, 128);
 
-    // Create Earth with procedural texture (no external dependencies)
+    // Texture URLs from reliable CDN sources (Solar System Scope - free for non-commercial use)
+    const TEXTURE_BASE = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/';
+
+    // Alternative high-quality textures from Solar System Scope
+    const EARTH_TEXTURES = {
+        map: 'https://unpkg.com/three-globe@2.24.13/example/img/earth-blue-marble.jpg',
+        bumpMap: 'https://unpkg.com/three-globe@2.24.13/example/img/earth-topology.png',
+        specularMap: TEXTURE_BASE + 'earth_specular_2048.jpg',
+        cloudsMap: 'https://unpkg.com/three-globe@2.24.13/example/img/earth-clouds.png',
+        nightMap: 'https://unpkg.com/three-globe@2.24.13/example/img/earth-night.jpg'
+    };
+
+    // Create loading manager to track progress
+    const loadingManager = new THREE.LoadingManager();
+    const textureLoaderManaged = new THREE.TextureLoader(loadingManager);
+
+    // Load Earth day texture (Blue Marble)
+    const earthTexture = textureLoaderManaged.load(EARTH_TEXTURES.map);
+    earthTexture.colorSpace = THREE.SRGBColorSpace;
+
+    // Load bump map for terrain elevation
+    const bumpTexture = textureLoaderManaged.load(EARTH_TEXTURES.bumpMap);
+
+    // Load specular map for ocean reflections
+    const specularTexture = textureLoaderManaged.load(EARTH_TEXTURES.specularMap);
+
+    // Create Earth material with all textures
     const earthMaterial = new THREE.MeshPhongMaterial({
-        color: 0x2233ff,
-        emissive: 0x112244,
-        specular: 0x333333,
-        shininess: 25
+        map: earthTexture,
+        bumpMap: bumpTexture,
+        bumpScale: 0.015,
+        specularMap: specularTexture,
+        specular: new THREE.Color(0x333333),
+        shininess: 15
     });
-
-    // Create a canvas texture for Earth
-    const canvas = document.createElement('canvas');
-    canvas.width = 2048;
-    canvas.height = 1024;
-    const ctx = canvas.getContext('2d');
-
-    // Ocean gradient
-    const oceanGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    oceanGradient.addColorStop(0, '#1a4d7c');
-    oceanGradient.addColorStop(0.5, '#0a3d62');
-    oceanGradient.addColorStop(1, '#1a4d7c');
-    ctx.fillStyle = oceanGradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw simplified continents
-    ctx.fillStyle = '#2d5a27';
-
-    // North America
-    ctx.beginPath();
-    ctx.ellipse(400, 280, 280, 180, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // South America
-    ctx.beginPath();
-    ctx.ellipse(550, 620, 120, 200, 0.3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Europe
-    ctx.beginPath();
-    ctx.ellipse(1100, 280, 150, 100, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Africa
-    ctx.beginPath();
-    ctx.ellipse(1100, 520, 180, 220, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Asia
-    ctx.beginPath();
-    ctx.ellipse(1450, 320, 350, 200, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Australia
-    ctx.beginPath();
-    ctx.ellipse(1700, 680, 120, 80, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Antarctica
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(1024, 980, 600, 80, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Arctic
-    ctx.beginPath();
-    ctx.ellipse(1024, 50, 400, 60, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    const earthTexture = new THREE.CanvasTexture(canvas);
-    earthMaterial.map = earthTexture;
-    earthMaterial.color = new THREE.Color(0xffffff);
-    earthMaterial.emissive = new THREE.Color(0x000000);
 
     earth = new THREE.Mesh(earthGeometry, earthMaterial);
     scene.add(earth);
 
-    // Clouds layer
+    // Clouds layer with real cloud texture
     const cloudsGeometry = new THREE.SphereGeometry(1.52, 64, 64);
-    const cloudCanvas = document.createElement('canvas');
-    cloudCanvas.width = 1024;
-    cloudCanvas.height = 512;
-    const cloudCtx = cloudCanvas.getContext('2d');
+    const cloudsTexture = textureLoaderManaged.load(EARTH_TEXTURES.cloudsMap);
 
-    // Transparent background
-    cloudCtx.clearRect(0, 0, cloudCanvas.width, cloudCanvas.height);
-
-    // Draw random cloud patterns
-    cloudCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    for (let i = 0; i < 100; i++) {
-        const x = Math.random() * cloudCanvas.width;
-        const y = Math.random() * cloudCanvas.height;
-        const w = 50 + Math.random() * 100;
-        const h = 20 + Math.random() * 40;
-        cloudCtx.beginPath();
-        cloudCtx.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
-        cloudCtx.fill();
-    }
-
-    const cloudTexture = new THREE.CanvasTexture(cloudCanvas);
     const cloudsMaterial = new THREE.MeshPhongMaterial({
-        map: cloudTexture,
+        map: cloudsTexture,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.35,
         depthWrite: false
     });
 
     clouds = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
     scene.add(clouds);
+
+    // Night lights layer (visible on dark side)
+    const nightGeometry = new THREE.SphereGeometry(1.501, 64, 64);
+    const nightTexture = textureLoaderManaged.load(EARTH_TEXTURES.nightMap);
+    nightTexture.colorSpace = THREE.SRGBColorSpace;
+
+    const nightMaterial = new THREE.MeshBasicMaterial({
+        map: nightTexture,
+        transparent: true,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending
+    });
+
+    const nightEarth = new THREE.Mesh(nightGeometry, nightMaterial);
+    earth.add(nightEarth); // Add as child so it rotates with Earth
 
     // Atmosphere glow
     const atmosphereGeometry = new THREE.SphereGeometry(1.7, 64, 64);
