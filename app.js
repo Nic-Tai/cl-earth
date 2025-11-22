@@ -171,6 +171,30 @@ const HOME_CITIES = [
 ];
 
 // ============================================
+// Achievements Data
+// ============================================
+const ACHIEVEMENTS = [
+    { id: 'first_flight', icon: '✈️', name: 'First Flight', description: 'Complete your first check-in', condition: (stats) => stats.visited >= 1 },
+    { id: 'explorer', icon: '🧭', name: 'Explorer', description: 'Visit 3 destinations', condition: (stats) => stats.visited >= 3 },
+    { id: 'globetrotter', icon: '🌍', name: 'Globetrotter', description: 'Visit 6 destinations', condition: (stats) => stats.visited >= 6 },
+    { id: 'world_traveler', icon: '🏆', name: 'World Traveler', description: 'Visit all 12 destinations', condition: (stats) => stats.visited >= 12 },
+    { id: 'long_haul', icon: '🛫', name: 'Long Haul', description: 'Travel over 10,000 km', condition: (stats) => stats.distance >= 10000 },
+    { id: 'jet_setter', icon: '💎', name: 'Jet Setter', description: 'Travel over 50,000 km', condition: (stats) => stats.distance >= 50000 },
+    { id: 'continent_hopper', icon: '🗺️', name: 'Continent Hopper', description: 'Visit 4 continents', condition: (stats) => stats.continents >= 4 },
+    { id: 'around_the_world', icon: '🌐', name: 'Around the World', description: 'Visit all 6 continents', condition: (stats) => stats.continents >= 6 }
+];
+
+// Continent mapping for destinations
+const CONTINENT_MAP = {
+    'paris': 'Europe', 'london': 'Europe', 'rome': 'Europe',
+    'newyork': 'North America',
+    'tokyo': 'Asia', 'dubai': 'Asia', 'beijing': 'Asia', 'mumbai': 'Asia', 'singapore': 'Asia',
+    'sydney': 'Oceania',
+    'rio': 'South America',
+    'cairo': 'Africa'
+};
+
+// ============================================
 // Global Variables
 // ============================================
 let scene, camera, renderer, controls;
@@ -179,6 +203,10 @@ let markers = [];
 let landmarks = {};
 let selectedHome = null;
 let isAnimating = false;
+let flightPath = null;
+let airplane = null;
+let totalDistance = 0;
+let unlockedAchievements = new Set();
 
 // ============================================
 // Utility Functions
@@ -203,6 +231,391 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
               Math.sin(dLng/2) * Math.sin(dLng/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return Math.round(R * c);
+}
+
+// ============================================
+// Airplane Model Creation
+// ============================================
+function createAirplane() {
+    const group = new THREE.Group();
+
+    // Fuselage
+    const fuselageGeometry = new THREE.CylinderGeometry(0.015, 0.012, 0.12, 8);
+    const fuselageMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+    const fuselage = new THREE.Mesh(fuselageGeometry, fuselageMaterial);
+    fuselage.rotation.z = Math.PI / 2;
+    group.add(fuselage);
+
+    // Nose cone
+    const noseGeometry = new THREE.ConeGeometry(0.012, 0.03, 8);
+    const nose = new THREE.Mesh(noseGeometry, fuselageMaterial);
+    nose.rotation.z = -Math.PI / 2;
+    nose.position.x = 0.075;
+    group.add(nose);
+
+    // Main wings
+    const wingGeometry = new THREE.BoxGeometry(0.02, 0.003, 0.1);
+    const wingMaterial = new THREE.MeshPhongMaterial({ color: 0xcccccc });
+    const wings = new THREE.Mesh(wingGeometry, wingMaterial);
+    wings.position.x = -0.01;
+    group.add(wings);
+
+    // Tail wing (horizontal)
+    const tailWingGeometry = new THREE.BoxGeometry(0.01, 0.002, 0.04);
+    const tailWing = new THREE.Mesh(tailWingGeometry, wingMaterial);
+    tailWing.position.x = -0.055;
+    group.add(tailWing);
+
+    // Tail fin (vertical)
+    const tailFinGeometry = new THREE.BoxGeometry(0.015, 0.025, 0.002);
+    const tailFin = new THREE.Mesh(tailFinGeometry, wingMaterial);
+    tailFin.position.set(-0.05, 0.012, 0);
+    group.add(tailFin);
+
+    // Engines (2)
+    const engineGeometry = new THREE.CylinderGeometry(0.006, 0.006, 0.025, 8);
+    const engineMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
+
+    const engine1 = new THREE.Mesh(engineGeometry, engineMaterial);
+    engine1.rotation.z = Math.PI / 2;
+    engine1.position.set(0.01, -0.01, 0.03);
+    group.add(engine1);
+
+    const engine2 = new THREE.Mesh(engineGeometry, engineMaterial);
+    engine2.rotation.z = Math.PI / 2;
+    engine2.position.set(0.01, -0.01, -0.03);
+    group.add(engine2);
+
+    // Contrail particles (optional visual effect)
+    const contrailGeometry = new THREE.SphereGeometry(0.004, 4, 4);
+    const contrailMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.5
+    });
+
+    for (let i = 0; i < 3; i++) {
+        const contrail = new THREE.Mesh(contrailGeometry, contrailMaterial.clone());
+        contrail.position.x = -0.08 - i * 0.015;
+        contrail.scale.setScalar(1 - i * 0.2);
+        contrail.material.opacity = 0.5 - i * 0.15;
+        group.add(contrail);
+    }
+
+    group.scale.setScalar(1.5);
+    return group;
+}
+
+// ============================================
+// Flight Path Arc Creation
+// ============================================
+function createFlightPath(startLat, startLng, endLat, endLng) {
+    // Remove existing flight path
+    if (flightPath) {
+        scene.remove(flightPath);
+        flightPath = null;
+    }
+
+    const startPos = latLngToVector3(startLat, startLng, 1.55);
+    const endPos = latLngToVector3(endLat, endLng, 1.55);
+
+    // Calculate midpoint and raise it for arc effect
+    const midPoint = new THREE.Vector3()
+        .addVectors(startPos, endPos)
+        .multiplyScalar(0.5);
+
+    // Calculate arc height based on distance
+    const distance = startPos.distanceTo(endPos);
+    const arcHeight = 1.55 + distance * 0.3; // Higher arc for longer distances
+    midPoint.normalize().multiplyScalar(arcHeight);
+
+    // Create quadratic bezier curve
+    const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, endPos);
+    const points = curve.getPoints(100);
+
+    // Create line geometry
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+    // Create gradient line with dashes
+    const material = new THREE.LineDashedMaterial({
+        color: 0x00d4ff,
+        dashSize: 0.03,
+        gapSize: 0.015,
+        transparent: true,
+        opacity: 0.8
+    });
+
+    flightPath = new THREE.Line(geometry, material);
+    flightPath.computeLineDistances(); // Required for dashed lines
+    scene.add(flightPath);
+
+    // Store the curve for airplane animation
+    flightPath.curve = curve;
+
+    return curve;
+}
+
+function removeFlightPath() {
+    if (flightPath) {
+        scene.remove(flightPath);
+        flightPath = null;
+    }
+    if (airplane) {
+        scene.remove(airplane);
+        airplane = null;
+    }
+}
+
+// ============================================
+// Progress Tracker
+// ============================================
+function updateProgressTracker() {
+    const visitedCount = DESTINATIONS.filter(d => d.checkedIn).length;
+    const totalCount = DESTINATIONS.length;
+    const percentage = (visitedCount / totalCount) * 100;
+
+    document.getElementById('visited-count').textContent = visitedCount;
+    document.getElementById('total-count').textContent = totalCount;
+    document.getElementById('visited-progress-bar').style.width = `${percentage}%`;
+
+    // Update message based on progress
+    let message = 'Start your journey!';
+    if (visitedCount === 1) {
+        message = 'Great start! Keep exploring!';
+    } else if (visitedCount >= 2 && visitedCount < 5) {
+        message = 'You\'re on a roll!';
+    } else if (visitedCount >= 5 && visitedCount < 8) {
+        message = 'Halfway there! Amazing!';
+    } else if (visitedCount >= 8 && visitedCount < 11) {
+        message = 'Almost a world traveler!';
+    } else if (visitedCount === 11) {
+        message = 'One more to go!';
+    } else if (visitedCount === totalCount) {
+        message = '🎉 World Explorer Complete!';
+    }
+
+    document.getElementById('progress-message').textContent = message;
+}
+
+// ============================================
+// Stats Dashboard
+// ============================================
+function getStats() {
+    const visited = DESTINATIONS.filter(d => d.checkedIn);
+    const visitedCount = visited.length;
+    const countries = new Set(visited.map(d => d.country)).size;
+    const continents = new Set(visited.map(d => CONTINENT_MAP[d.id])).size;
+
+    return {
+        visited: visitedCount,
+        distance: totalDistance,
+        countries: countries,
+        continents: continents
+    };
+}
+
+function updateStatsDashboard() {
+    const stats = getStats();
+
+    // Format distance with K/M suffix
+    let distanceStr;
+    if (stats.distance >= 1000000) {
+        distanceStr = (stats.distance / 1000000).toFixed(1) + 'M';
+    } else if (stats.distance >= 1000) {
+        distanceStr = (stats.distance / 1000).toFixed(1) + 'K';
+    } else {
+        distanceStr = stats.distance.toString();
+    }
+
+    document.getElementById('total-distance-stat').textContent = distanceStr;
+    document.getElementById('countries-stat').textContent = stats.countries;
+    document.getElementById('continents-stat').textContent = stats.continents;
+}
+
+// ============================================
+// Achievements System
+// ============================================
+function initAchievements() {
+    const badgesGrid = document.getElementById('badges-grid');
+    badgesGrid.innerHTML = '';
+
+    ACHIEVEMENTS.forEach(achievement => {
+        const badge = document.createElement('div');
+        badge.className = 'badge locked';
+        badge.id = `badge-${achievement.id}`;
+        badge.innerHTML = achievement.icon;
+        badge.setAttribute('data-tooltip', `${achievement.name}: ${achievement.description}`);
+        badgesGrid.appendChild(badge);
+    });
+
+    updateBadgesCount();
+}
+
+function checkAchievements() {
+    const stats = getStats();
+    const newlyUnlocked = [];
+
+    ACHIEVEMENTS.forEach(achievement => {
+        if (!unlockedAchievements.has(achievement.id) && achievement.condition(stats)) {
+            unlockedAchievements.add(achievement.id);
+            newlyUnlocked.push(achievement);
+
+            // Update badge UI
+            const badge = document.getElementById(`badge-${achievement.id}`);
+            if (badge) {
+                badge.classList.remove('locked');
+                badge.classList.add('unlocked');
+            }
+        }
+    });
+
+    // Show notification for new achievements
+    if (newlyUnlocked.length > 0) {
+        showAchievementNotification(newlyUnlocked[0]);
+    }
+
+    updateBadgesCount();
+    saveProgress();
+}
+
+function updateBadgesCount() {
+    const count = unlockedAchievements.size;
+    document.getElementById('badges-count').textContent = `${count}/${ACHIEVEMENTS.length}`;
+}
+
+function showAchievementNotification(achievement) {
+    // Remove any existing notification
+    const existing = document.querySelector('.badge-notification');
+    if (existing) existing.remove();
+
+    // Play achievement sound
+    playSound('achievement');
+
+    const notification = document.createElement('div');
+    notification.className = 'badge-notification';
+    notification.innerHTML = `
+        <div class="badge-icon">${achievement.icon}</div>
+        <h3>Achievement Unlocked!</h3>
+        <p><strong>${achievement.name}</strong><br>${achievement.description}</p>
+        <button class="btn btn-primary" onclick="this.parentElement.remove()">Awesome!</button>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// ============================================
+// LocalStorage - Save/Load Progress
+// ============================================
+function saveProgress() {
+    const saveData = {
+        version: '1.4',
+        checkedIn: DESTINATIONS.filter(d => d.checkedIn).map(d => d.id),
+        totalDistance: totalDistance,
+        unlockedAchievements: Array.from(unlockedAchievements),
+        selectedHome: selectedHome
+    };
+
+    try {
+        localStorage.setItem('earthExplorerProgress', JSON.stringify(saveData));
+    } catch (e) {
+        console.warn('Could not save progress to localStorage:', e);
+    }
+}
+
+function loadProgress() {
+    try {
+        const saved = localStorage.getItem('earthExplorerProgress');
+        if (!saved) return false;
+
+        const saveData = JSON.parse(saved);
+
+        // Restore checked-in destinations
+        if (saveData.checkedIn) {
+            saveData.checkedIn.forEach(id => {
+                const dest = DESTINATIONS.find(d => d.id === id);
+                if (dest) {
+                    dest.checkedIn = true;
+                }
+            });
+        }
+
+        // Restore total distance
+        if (saveData.totalDistance) {
+            totalDistance = saveData.totalDistance;
+        }
+
+        // Restore achievements
+        if (saveData.unlockedAchievements) {
+            unlockedAchievements = new Set(saveData.unlockedAchievements);
+        }
+
+        // Restore selected home
+        if (saveData.selectedHome) {
+            selectedHome = saveData.selectedHome;
+        }
+
+        return true;
+    } catch (e) {
+        console.warn('Could not load progress from localStorage:', e);
+        return false;
+    }
+}
+
+function applyLoadedProgress() {
+    // Update UI for checked-in destinations
+    DESTINATIONS.forEach(dest => {
+        if (dest.checkedIn && dest.cardElement) {
+            dest.cardElement.classList.add('checked-in');
+            dest.cardElement.querySelector('.destination-status').textContent = '✓ Visited';
+
+            // Show landmarks
+            if (landmarks[dest.id]) {
+                landmarks[dest.id].visible = true;
+            }
+        }
+    });
+
+    // Update home selection UI
+    if (selectedHome) {
+        const homeSelect = document.getElementById('home-select');
+        const options = Array.from(homeSelect.options);
+        const matchingOption = options.find(opt => {
+            if (!opt.value) return false;
+            const city = JSON.parse(opt.value);
+            return city.name === selectedHome.name;
+        });
+        if (matchingOption) {
+            homeSelect.value = matchingOption.value;
+            const homeInfo = document.getElementById('home-info');
+            homeInfo.innerHTML = `<strong>${selectedHome.name}</strong><br>Ready to explore the world!`;
+            homeInfo.classList.remove('hidden');
+        }
+    }
+
+    // Update progress tracker
+    updateProgressTracker();
+
+    // Update stats dashboard
+    updateStatsDashboard();
+
+    // Update achievements UI
+    ACHIEVEMENTS.forEach(achievement => {
+        if (unlockedAchievements.has(achievement.id)) {
+            const badge = document.getElementById(`badge-${achievement.id}`);
+            if (badge) {
+                badge.classList.remove('locked');
+                badge.classList.add('unlocked');
+            }
+        }
+    });
+    updateBadgesCount();
 }
 
 // ============================================
@@ -950,6 +1363,9 @@ function populateUI() {
 
             // Rotate to home location
             rotateToLocation(selectedHome.lat, selectedHome.lng, 1500);
+
+            // Save progress
+            saveProgress();
         }
     });
 
@@ -1447,16 +1863,25 @@ async function performCheckIn(destination) {
 
     // Animate progress bar and Earth rotation
     const progressFill = document.getElementById('progress-fill');
-    const duration = 3000; // 3 seconds
+    const duration = 4000; // 4 seconds for better visual effect
 
     // First rotate to home
     await rotateToLocation(selectedHome.lat, selectedHome.lng, 800);
 
-    // Then animate to destination
+    // Create flight path arc
     const startLat = selectedHome.lat;
     const startLng = selectedHome.lng;
     const endLat = destination.lat;
     const endLng = destination.lng;
+
+    const curve = createFlightPath(startLat, startLng, endLat, endLng);
+
+    // Create airplane
+    airplane = createAirplane();
+    scene.add(airplane);
+
+    // Play takeoff sound
+    playSound('takeoff');
 
     const startTime = Date.now();
 
@@ -1465,41 +1890,77 @@ async function performCheckIn(destination) {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
 
-            // Ease function
+            // Ease function for smooth animation
             const easeProgress = 1 - Math.pow(1 - progress, 3);
 
             // Update progress bar
             progressFill.style.width = `${easeProgress * 100}%`;
 
-            // Interpolate position
-            const currentLat = startLat + (endLat - startLat) * easeProgress;
-            const currentLng = startLng + (endLng - startLng) * easeProgress;
+            // Get position along the curve
+            const point = curve.getPoint(easeProgress);
+            const tangent = curve.getTangent(easeProgress);
+
+            // Update airplane position and rotation
+            if (airplane) {
+                airplane.position.copy(point);
+
+                // Orient airplane along flight path
+                const up = point.clone().normalize();
+                const axis = new THREE.Vector3().crossVectors(up, tangent).normalize();
+                const radians = Math.acos(up.dot(tangent));
+
+                airplane.quaternion.setFromAxisAngle(axis, radians);
+                airplane.rotateX(Math.PI / 2);
+
+                // Make airplane look in direction of travel
+                const lookAtPoint = curve.getPoint(Math.min(easeProgress + 0.01, 1));
+                airplane.lookAt(lookAtPoint);
+            }
 
             // Update camera to follow
-            const targetPos = latLngToVector3(currentLat, currentLng, 5);
-            camera.position.lerp(targetPos, 0.1);
+            const cameraOffset = point.clone().normalize().multiplyScalar(3.5);
+            camera.position.lerp(point.clone().add(cameraOffset), 0.05);
             camera.lookAt(0, 0, 0);
 
             if (progress < 1) {
                 requestAnimationFrame(animateFlight);
             } else {
-                // Animation complete - show landmark and check-in status
+                // Animation complete - cleanup and show results
                 flightInfo.classList.add('hidden');
                 progressFill.style.width = '0%';
+
+                // Play landing sound
+                playSound('landing');
+
+                // Remove flight path and airplane after a short delay
+                setTimeout(() => {
+                    removeFlightPath();
+                }, 500);
 
                 // Mark as checked in
                 destination.checkedIn = true;
                 destination.cardElement.classList.add('checked-in');
                 destination.cardElement.querySelector('.destination-status').textContent = '✓ Visited';
 
+                // Update total distance traveled
+                totalDistance += distance;
+
                 // Show landmark on globe
                 landmarks[destination.id].visible = true;
+
+                // Update progress tracker and stats
+                updateProgressTracker();
+                updateStatsDashboard();
+
+                // Check for new achievements
+                checkAchievements();
 
                 // Show check-in status
                 const checkinStatus = document.getElementById('checkin-status');
                 document.getElementById('checkin-details').innerHTML = `
                     Welcome to <strong>${destination.name}</strong>!<br>
-                    <small>${destination.landmark} is now visible on the globe</small>
+                    <small>${destination.landmark} is now visible on the globe</small><br>
+                    <small style="color: #00d4ff;">+${distance.toLocaleString()} km traveled</small>
                 `;
                 checkinStatus.classList.remove('hidden');
 
@@ -1661,6 +2122,197 @@ function animate() {
 }
 
 // ============================================
+// Sound Effects System
+// ============================================
+let soundEnabled = true;
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioContext = null;
+
+function initAudio() {
+    try {
+        audioContext = new AudioContext();
+    } catch (e) {
+        console.warn('Web Audio API not supported');
+    }
+}
+
+function playSound(type) {
+    if (!soundEnabled || !audioContext) return;
+
+    // Resume audio context if suspended (required for some browsers)
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    switch (type) {
+        case 'takeoff':
+            oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(600, audioContext.currentTime + 0.5);
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+            break;
+
+        case 'landing':
+            oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(300, audioContext.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+            break;
+
+        case 'achievement':
+            // Play a happy arpeggio
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, i) => {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.frequency.value = freq;
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.1, audioContext.currentTime + i * 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + i * 0.1 + 0.2);
+                osc.start(audioContext.currentTime + i * 0.1);
+                osc.stop(audioContext.currentTime + i * 0.1 + 0.2);
+            });
+            break;
+
+        case 'click':
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.05);
+            break;
+    }
+}
+
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    const btn = document.getElementById('sound-toggle');
+    btn.textContent = soundEnabled ? '🔊' : '🔇';
+    btn.classList.toggle('muted', !soundEnabled);
+    if (soundEnabled) playSound('click');
+}
+
+// ============================================
+// Day/Night Cycle
+// ============================================
+let isNightMode = false;
+let sunLight = null;
+
+function toggleDayNight() {
+    isNightMode = !isNightMode;
+    const btn = document.getElementById('day-night-toggle');
+    btn.textContent = isNightMode ? '🌙' : '☀️';
+    btn.classList.toggle('night-mode', isNightMode);
+    document.body.classList.toggle('night-mode', isNightMode);
+
+    // Update lighting
+    if (sunLight) {
+        if (isNightMode) {
+            sunLight.intensity = 0.3;
+            sunLight.color.setHex(0x4466aa);
+        } else {
+            sunLight.intensity = 1.5;
+            sunLight.color.setHex(0xffffff);
+        }
+    }
+
+    playSound('click');
+}
+
+// ============================================
+// Social Sharing
+// ============================================
+function showShareModal() {
+    playSound('click');
+
+    const stats = getStats();
+    const badgeCount = unlockedAchievements.size;
+
+    // Remove existing modal
+    const existing = document.getElementById('share-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'share-modal';
+    modal.innerHTML = `
+        <div class="share-content">
+            <h3>📤 Share Your Journey</h3>
+            <div class="share-stats">
+                <p>🌍 <strong>${stats.visited}</strong> destinations visited</p>
+                <p>✈️ <strong>${stats.distance.toLocaleString()}</strong> km traveled</p>
+                <p>🗺️ <strong>${stats.continents}</strong> continents explored</p>
+                <p>🏆 <strong>${badgeCount}</strong> achievements unlocked</p>
+            </div>
+            <div class="share-buttons">
+                <button class="share-btn twitter" onclick="shareToTwitter()">
+                    🐦 Tweet
+                </button>
+                <button class="share-btn copy" onclick="copyShareText()">
+                    📋 Copy
+                </button>
+            </div>
+            <button class="btn" onclick="this.closest('#share-modal').remove()">Close</button>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+}
+
+function getShareText() {
+    const stats = getStats();
+    const badgeCount = unlockedAchievements.size;
+    return `🌍 I've explored ${stats.visited} destinations and traveled ${stats.distance.toLocaleString()} km on Earth Explorer! 🏆 ${badgeCount}/${ACHIEVEMENTS.length} achievements unlocked! Check it out: `;
+}
+
+function shareToTwitter() {
+    const text = encodeURIComponent(getShareText());
+    const url = encodeURIComponent(window.location.href);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+}
+
+function copyShareText() {
+    const text = getShareText() + window.location.href;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.share-btn.copy');
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => {
+            btn.innerHTML = '📋 Copy';
+        }, 2000);
+    });
+}
+
+// ============================================
+// Setup Controls
+// ============================================
+function setupControls() {
+    document.getElementById('sound-toggle').addEventListener('click', toggleSound);
+    document.getElementById('day-night-toggle').addEventListener('click', toggleDayNight);
+    document.getElementById('share-btn').addEventListener('click', showShareModal);
+
+    // Initialize audio on first user interaction
+    document.addEventListener('click', () => {
+        if (!audioContext) initAudio();
+    }, { once: true });
+}
+
+// ============================================
 // Initialize Application
 // ============================================
 function init() {
@@ -1669,10 +2321,25 @@ function init() {
     createMarkers();
     populateUI();
     setupRaycasting();
+    setupControls();
 
-    // Hide loading screen
+    // Store reference to sunLight for day/night toggle
+    sunLight = scene.children.find(child => child.type === 'DirectionalLight' && child.intensity > 1);
+
+    // Initialize achievements
+    initAchievements();
+
+    // Load saved progress
+    const hasProgress = loadProgress();
+
+    // Hide loading screen and apply progress
     setTimeout(() => {
         document.getElementById('loading-screen').classList.add('hidden');
+
+        // Apply loaded progress after UI is ready
+        if (hasProgress) {
+            setTimeout(() => applyLoadedProgress(), 100);
+        }
     }, 1500);
 
     animate();

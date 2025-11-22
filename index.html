@@ -40,6 +40,68 @@
                 <div id="checkin-details"></div>
                 <button id="close-checkin" class="btn">Close</button>
             </div>
+
+            <!-- Progress Tracker -->
+            <div id="progress-tracker" class="panel">
+                <div class="progress-header">
+                    <span class="progress-icon">🌎</span>
+                    <span class="progress-title">World Explorer</span>
+                </div>
+                <div class="progress-stats">
+                    <span id="visited-count">0</span>/<span id="total-count">12</span> destinations
+                </div>
+                <div class="progress-bar-container">
+                    <div id="visited-progress-bar" class="visited-progress-bar"></div>
+                </div>
+                <div id="progress-message" class="progress-message">Start your journey!</div>
+            </div>
+
+            <!-- Stats Dashboard -->
+            <div id="stats-dashboard" class="panel">
+                <div class="stats-header">
+                    <span class="stats-icon">📊</span>
+                    <span class="stats-title">Travel Stats</span>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-distance-stat">0</span>
+                        <span class="stat-label">km traveled</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="countries-stat">0</span>
+                        <span class="stat-label">countries</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="continents-stat">0</span>
+                        <span class="stat-label">continents</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Achievements Panel -->
+            <div id="achievements-panel" class="panel">
+                <div class="achievements-header">
+                    <span class="achievements-icon">🏆</span>
+                    <span class="achievements-title">Achievements</span>
+                    <span id="badges-count" class="badges-count">0/8</span>
+                </div>
+                <div id="badges-grid" class="badges-grid">
+                    <!-- Badges will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Controls Panel -->
+            <div id="controls-panel">
+                <button id="sound-toggle" class="control-btn" title="Toggle Sound">
+                    🔊
+                </button>
+                <button id="day-night-toggle" class="control-btn" title="Toggle Day/Night">
+                    ☀️
+                </button>
+                <button id="share-btn" class="control-btn" title="Share Progress">
+                    📤
+                </button>
+            </div>
         </div>
 
         <!-- Flight Info Overlay (shown during animation) -->
@@ -79,7 +141,7 @@
         </div>
 
         <!-- Version Display -->
-        <div id="version-display">v1.2</div>
+        <div id="version-display">v1.5</div>
     </div>
 
     <!-- Three.js -->
