@@ -1291,30 +1291,32 @@ function createLandmark(destination, position) {
 // ============================================
 function createMarkers() {
     DESTINATIONS.forEach(dest => {
-        const position = latLngToVector3(dest.lat, dest.lng, 1.52);
+        // Calculate position relative to Earth's surface (not scene origin)
+        const position = latLngToVector3(dest.lat, dest.lng, 1.02); // Relative to Earth radius of 1.5 -> 1.5 * 1.02 = 1.53
 
         // Create marker pin
         const markerGroup = new THREE.Group();
 
         // Pin head (sphere)
-        const headGeometry = new THREE.SphereGeometry(0.03, 16, 16);
+        const headGeometry = new THREE.SphereGeometry(0.02, 16, 16);
         const headMaterial = new THREE.MeshPhongMaterial({
             color: 0x00d4ff,
             emissive: 0x00d4ff,
-            emissiveIntensity: 0.3
+            emissiveIntensity: 0.5
         });
         const head = new THREE.Mesh(headGeometry, headMaterial);
+        head.position.y = 0.04;
         markerGroup.add(head);
 
         // Pin stem
-        const stemGeometry = new THREE.CylinderGeometry(0.005, 0.005, 0.08, 8);
+        const stemGeometry = new THREE.CylinderGeometry(0.004, 0.004, 0.06, 8);
         const stemMaterial = new THREE.MeshPhongMaterial({ color: 0x00d4ff });
         const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-        stem.position.y = -0.05;
+        stem.position.y = 0.01;
         markerGroup.add(stem);
 
-        // Pulse ring
-        const ringGeometry = new THREE.RingGeometry(0.04, 0.05, 32);
+        // Pulse ring at base
+        const ringGeometry = new THREE.RingGeometry(0.015, 0.025, 32);
         const ringMaterial = new THREE.MeshBasicMaterial({
             color: 0x00d4ff,
             transparent: true,
@@ -1322,21 +1324,29 @@ function createMarkers() {
             side: THREE.DoubleSide
         });
         const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = -0.02;
         markerGroup.add(ring);
 
+        // Position marker on Earth surface
         markerGroup.position.copy(position);
-        markerGroup.lookAt(0, 0, 0);
+
+        // Orient marker to point outward from Earth center
+        markerGroup.lookAt(new THREE.Vector3(0, 0, 0));
+        markerGroup.rotateX(Math.PI); // Flip so it points outward
+
         markerGroup.userData = { destination: dest };
 
-        scene.add(markerGroup);
+        // Add marker as child of Earth so it rotates with Earth
+        earth.add(markerGroup);
         markers.push(markerGroup);
 
-        // Create and add landmark
-        const landmarkPosition = latLngToVector3(dest.lat, dest.lng, 1.55);
+        // Create and add landmark (also as child of Earth)
+        const landmarkPosition = latLngToVector3(dest.lat, dest.lng, 1.04);
         const landmark = createLandmark(dest, landmarkPosition);
         landmark.userData = { destination: dest };
         landmark.visible = false; // Hidden by default, shown on check-in
-        scene.add(landmark);
+        earth.add(landmark);
         landmarks[dest.id] = landmark;
     });
 }
@@ -1848,6 +1858,12 @@ async function performCheckIn(destination) {
 
     isAnimating = true;
 
+    // Auto-collapse all panels for better view during animation
+    collapseAllPanels();
+
+    // Close the popup if open
+    document.getElementById('landmark-popup').classList.add('hidden');
+
     // Show flight info
     const flightInfo = document.getElementById('flight-info');
     document.getElementById('flight-from').textContent = selectedHome.name;
@@ -2306,10 +2322,89 @@ function setupControls() {
     document.getElementById('day-night-toggle').addEventListener('click', toggleDayNight);
     document.getElementById('share-btn').addEventListener('click', showShareModal);
 
+    // Setup collapsible panel toggles
+    setupPanelToggles();
+
+    // Collapse all panels button
+    document.getElementById('collapse-all-btn').addEventListener('click', toggleAllPanels);
+
     // Initialize audio on first user interaction
     document.addEventListener('click', () => {
         if (!audioContext) initAudio();
     }, { once: true });
+}
+
+// ============================================
+// Panel Toggle System
+// ============================================
+let allPanelsCollapsed = false;
+
+function setupPanelToggles() {
+    const toggleButtons = document.querySelectorAll('.panel-toggle');
+
+    toggleButtons.forEach(button => {
+        const panelId = button.getAttribute('data-panel');
+        const panel = document.getElementById(panelId);
+
+        if (panel) {
+            // Start with panels expanded
+            panel.classList.remove('collapsed');
+
+            button.addEventListener('click', () => {
+                panel.classList.toggle('collapsed');
+                button.classList.toggle('active', !panel.classList.contains('collapsed'));
+            });
+
+            // Set initial active state
+            button.classList.add('active');
+        }
+    });
+}
+
+function collapseAllPanels() {
+    const panels = document.querySelectorAll('.panel.collapsible');
+    const toggleButtons = document.querySelectorAll('.panel-toggle');
+
+    panels.forEach(panel => {
+        panel.classList.add('collapsed');
+    });
+
+    toggleButtons.forEach(button => {
+        button.classList.remove('active');
+    });
+
+    allPanelsCollapsed = true;
+    updateCollapseAllButton();
+}
+
+function expandAllPanels() {
+    const panels = document.querySelectorAll('.panel.collapsible');
+    const toggleButtons = document.querySelectorAll('.panel-toggle');
+
+    panels.forEach(panel => {
+        panel.classList.remove('collapsed');
+    });
+
+    toggleButtons.forEach(button => {
+        button.classList.add('active');
+    });
+
+    allPanelsCollapsed = false;
+    updateCollapseAllButton();
+}
+
+function toggleAllPanels() {
+    if (allPanelsCollapsed) {
+        expandAllPanels();
+    } else {
+        collapseAllPanels();
+    }
+}
+
+function updateCollapseAllButton() {
+    const btn = document.getElementById('collapse-all-btn');
+    btn.textContent = allPanelsCollapsed ? '👁️‍🗨️' : '👁️';
+    btn.title = allPanelsCollapsed ? 'Show All Panels' : 'Hide All Panels';
 }
 
 // ============================================

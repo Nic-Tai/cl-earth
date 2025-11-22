@@ -19,78 +19,108 @@
                 <p class="subtitle">Check in to amazing destinations around the world</p>
             </header>
 
-            <!-- Home Location Panel -->
-            <div id="home-panel" class="panel">
-                <h3>📍 Your Home</h3>
-                <select id="home-select">
-                    <option value="">Select your home city...</option>
-                </select>
-                <div id="home-info" class="location-info hidden"></div>
+            <!-- Collapsible Panel: Home -->
+            <div id="home-wrapper" class="panel-wrapper left-panels">
+                <button class="panel-toggle" data-panel="home-panel" title="Your Home">
+                    <span class="toggle-icon">📍</span>
+                    <span class="toggle-label">Home</span>
+                </button>
+                <div id="home-panel" class="panel collapsible">
+                    <h3>📍 Your Home</h3>
+                    <select id="home-select">
+                        <option value="">Select your home city...</option>
+                    </select>
+                    <div id="home-info" class="location-info hidden"></div>
+                </div>
             </div>
 
-            <!-- Destinations Panel -->
-            <div id="destinations-panel" class="panel">
-                <h3>✈️ Destinations</h3>
-                <div id="destinations-list"></div>
+            <!-- Collapsible Panel: Destinations -->
+            <div id="destinations-wrapper" class="panel-wrapper left-panels">
+                <button class="panel-toggle" data-panel="destinations-panel" title="Destinations">
+                    <span class="toggle-icon">✈️</span>
+                    <span class="toggle-label">Destinations</span>
+                </button>
+                <div id="destinations-panel" class="panel collapsible">
+                    <h3>✈️ Destinations</h3>
+                    <div id="destinations-list"></div>
+                </div>
             </div>
 
-            <!-- Check-in Status -->
+            <!-- Check-in Status (centered, not collapsible) -->
             <div id="checkin-status" class="panel hidden">
                 <h3>🎉 Checked In!</h3>
                 <div id="checkin-details"></div>
                 <button id="close-checkin" class="btn">Close</button>
             </div>
 
-            <!-- Progress Tracker -->
-            <div id="progress-tracker" class="panel">
-                <div class="progress-header">
-                    <span class="progress-icon">🌎</span>
-                    <span class="progress-title">World Explorer</span>
-                </div>
-                <div class="progress-stats">
-                    <span id="visited-count">0</span>/<span id="total-count">12</span> destinations
-                </div>
-                <div class="progress-bar-container">
-                    <div id="visited-progress-bar" class="visited-progress-bar"></div>
-                </div>
-                <div id="progress-message" class="progress-message">Start your journey!</div>
-            </div>
-
-            <!-- Stats Dashboard -->
-            <div id="stats-dashboard" class="panel">
-                <div class="stats-header">
-                    <span class="stats-icon">📊</span>
-                    <span class="stats-title">Travel Stats</span>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <span class="stat-value" id="total-distance-stat">0</span>
-                        <span class="stat-label">km traveled</span>
+            <!-- Collapsible Panel: Progress -->
+            <div id="progress-wrapper" class="panel-wrapper bottom-left-panels">
+                <button class="panel-toggle" data-panel="progress-tracker" title="Progress">
+                    <span class="toggle-icon">🌎</span>
+                    <span class="toggle-badge" id="progress-badge">0/12</span>
+                </button>
+                <div id="progress-tracker" class="panel collapsible">
+                    <div class="progress-header">
+                        <span class="progress-icon">🌎</span>
+                        <span class="progress-title">World Explorer</span>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="countries-stat">0</span>
-                        <span class="stat-label">countries</span>
+                    <div class="progress-stats">
+                        <span id="visited-count">0</span>/<span id="total-count">12</span> destinations
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="continents-stat">0</span>
-                        <span class="stat-label">continents</span>
+                    <div class="progress-bar-container">
+                        <div id="visited-progress-bar" class="visited-progress-bar"></div>
                     </div>
+                    <div id="progress-message" class="progress-message">Start your journey!</div>
                 </div>
             </div>
 
-            <!-- Achievements Panel -->
-            <div id="achievements-panel" class="panel">
-                <div class="achievements-header">
-                    <span class="achievements-icon">🏆</span>
-                    <span class="achievements-title">Achievements</span>
-                    <span id="badges-count" class="badges-count">0/8</span>
-                </div>
-                <div id="badges-grid" class="badges-grid">
-                    <!-- Badges will be populated by JavaScript -->
+            <!-- Collapsible Panel: Stats -->
+            <div id="stats-wrapper" class="panel-wrapper bottom-right-panels">
+                <button class="panel-toggle" data-panel="stats-dashboard" title="Stats">
+                    <span class="toggle-icon">📊</span>
+                    <span class="toggle-badge" id="stats-badge">0km</span>
+                </button>
+                <div id="stats-dashboard" class="panel collapsible">
+                    <div class="stats-header">
+                        <span class="stats-icon">📊</span>
+                        <span class="stats-title">Travel Stats</span>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value" id="total-distance-stat">0</span>
+                            <span class="stat-label">km traveled</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="countries-stat">0</span>
+                            <span class="stat-label">countries</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="continents-stat">0</span>
+                            <span class="stat-label">continents</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Controls Panel -->
+            <!-- Collapsible Panel: Achievements -->
+            <div id="achievements-wrapper" class="panel-wrapper bottom-right-panels">
+                <button class="panel-toggle" data-panel="achievements-panel" title="Achievements">
+                    <span class="toggle-icon">🏆</span>
+                    <span class="toggle-badge" id="achievements-badge">0/8</span>
+                </button>
+                <div id="achievements-panel" class="panel collapsible">
+                    <div class="achievements-header">
+                        <span class="achievements-icon">🏆</span>
+                        <span class="achievements-title">Achievements</span>
+                        <span id="badges-count" class="badges-count">0/8</span>
+                    </div>
+                    <div id="badges-grid" class="badges-grid">
+                        <!-- Badges will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Panel (always visible as circles) -->
             <div id="controls-panel">
                 <button id="sound-toggle" class="control-btn" title="Toggle Sound">
                     🔊
@@ -100,6 +130,9 @@
                 </button>
                 <button id="share-btn" class="control-btn" title="Share Progress">
                     📤
+                </button>
+                <button id="collapse-all-btn" class="control-btn" title="Toggle All Panels">
+                    👁️
                 </button>
             </div>
         </div>
@@ -141,7 +174,7 @@
         </div>
 
         <!-- Version Display -->
-        <div id="version-display">v1.5</div>
+        <div id="version-display">v1.6</div>
     </div>
 
     <!-- Three.js -->

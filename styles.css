@@ -89,12 +89,134 @@ body {
     color: #00d4ff;
 }
 
-/* Home Panel */
-#home-panel {
+/* Collapsible Panel System */
+.panel-wrapper {
     position: absolute;
+    z-index: 20;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.panel-wrapper.left-panels {
+    flex-direction: row;
+}
+
+.panel-wrapper.bottom-left-panels,
+.panel-wrapper.bottom-right-panels {
+    flex-direction: column;
+    align-items: center;
+}
+
+#home-wrapper {
     top: 120px;
     left: 20px;
-    width: 280px;
+}
+
+#destinations-wrapper {
+    top: 220px;
+    left: 20px;
+}
+
+#progress-wrapper {
+    bottom: 30px;
+    left: 20px;
+}
+
+#stats-wrapper {
+    bottom: 30px;
+    right: 20px;
+}
+
+#achievements-wrapper {
+    bottom: 120px;
+    right: 20px;
+}
+
+.panel-toggle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    background: rgba(20, 20, 40, 0.9);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.panel-toggle:hover {
+    transform: scale(1.1);
+    border-color: #00d4ff;
+    background: rgba(0, 212, 255, 0.2);
+}
+
+.panel-toggle .toggle-icon {
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+.panel-toggle .toggle-label {
+    font-size: 0.5rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 2px;
+    display: none;
+}
+
+.panel-toggle .toggle-badge {
+    font-size: 0.55rem;
+    color: #00ff88;
+    font-weight: bold;
+    margin-top: 1px;
+}
+
+/* Collapsible panel states */
+.panel.collapsible {
+    transition: all 0.3s ease;
+    transform-origin: top left;
+}
+
+.panel.collapsible.collapsed {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden;
+}
+
+.panel-wrapper.collapsed .panel-toggle {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(0, 212, 255, 0); }
+}
+
+/* All panels collapsed mode */
+body.panels-collapsed .panel.collapsible {
+    opacity: 0;
+    transform: scale(0.8);
+    pointer-events: none;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+}
+
+body.panels-collapsed #header {
+    opacity: 0.3;
+}
+
+/* Home Panel */
+#home-panel {
+    width: 260px;
 }
 
 #home-select {
@@ -129,11 +251,8 @@ body {
 
 /* Destinations Panel */
 #destinations-panel {
-    position: absolute;
-    top: 120px;
-    right: 20px;
-    width: 320px;
-    max-height: calc(100vh - 160px);
+    width: 300px;
+    max-height: 350px;
     overflow-y: auto;
 }
 
@@ -530,10 +649,7 @@ body {
 
 /* Progress Tracker */
 #progress-tracker {
-    position: absolute;
-    bottom: 30px;
-    left: 20px;
-    width: 220px;
+    width: 200px;
     padding: 15px;
 }
 
@@ -589,10 +705,7 @@ body {
 
 /* Stats Dashboard */
 #stats-dashboard {
-    position: absolute;
-    bottom: 30px;
-    right: 20px;
-    width: 200px;
+    width: 180px;
     padding: 15px;
 }
 
@@ -641,10 +754,7 @@ body {
 
 /* Achievements Panel */
 #achievements-panel {
-    position: absolute;
-    bottom: 200px;
-    right: 20px;
-    width: 200px;
+    width: 180px;
     padding: 15px;
 }
 
@@ -764,10 +874,11 @@ body {
 #controls-panel {
     position: absolute;
     top: 120px;
-    right: 350px;
+    right: 20px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+    z-index: 30;
 }
 
 .control-btn {
