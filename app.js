@@ -988,55 +988,438 @@ function showDestinationPopup(destination) {
     const previewContainer = document.getElementById('popup-landmark-preview');
     previewContainer.innerHTML = '';
 
-    const miniScene = new THREE.Scene();
-    const miniCamera = new THREE.PerspectiveCamera(45, previewContainer.clientWidth / 200, 0.1, 100);
-    miniCamera.position.z = 3;
+    // Wait for container to be visible and have dimensions
+    setTimeout(() => {
+        const containerWidth = previewContainer.clientWidth || 380;
+        const containerHeight = 200;
 
-    const miniRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    miniRenderer.setSize(previewContainer.clientWidth, 200);
-    miniRenderer.setClearColor(0x000000, 0);
-    previewContainer.appendChild(miniRenderer.domElement);
+        const miniScene = new THREE.Scene();
+        miniScene.background = new THREE.Color(0x1a1a2e);
 
-    // Add lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    miniScene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(2, 2, 2);
-    miniScene.add(directionalLight);
+        const miniCamera = new THREE.PerspectiveCamera(50, containerWidth / containerHeight, 0.1, 100);
+        miniCamera.position.set(0, 0.3, 1.5);
+        miniCamera.lookAt(0, 0.3, 0);
 
-    // Create landmark preview
-    const previewLandmark = createLandmark(destination, new THREE.Vector3(0, -0.5, 0));
-    previewLandmark.scale.setScalar(0.8);
-    previewLandmark.rotation.set(0, 0, 0);
-    previewLandmark.visible = true;
-    miniScene.add(previewLandmark);
+        const miniRenderer = new THREE.WebGLRenderer({ antialias: true });
+        miniRenderer.setSize(containerWidth, containerHeight);
+        miniRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        previewContainer.appendChild(miniRenderer.domElement);
 
-    // Animation for preview
-    let previewAnimFrame;
-    function animatePreview() {
-        previewAnimFrame = requestAnimationFrame(animatePreview);
-        previewLandmark.rotation.y += 0.01;
-        miniRenderer.render(miniScene, miniCamera);
-    }
-    animatePreview();
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        miniScene.add(ambientLight);
 
-    // Store animation frame for cleanup
-    popup.dataset.animFrame = previewAnimFrame;
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        directionalLight.position.set(3, 3, 3);
+        miniScene.add(directionalLight);
+
+        const backLight = new THREE.DirectionalLight(0x4fc3f7, 0.4);
+        backLight.position.set(-2, 1, -2);
+        miniScene.add(backLight);
+
+        // Create landmark preview (use standalone version without globe positioning)
+        const previewLandmark = createLandmarkForPreview(destination);
+        miniScene.add(previewLandmark);
+
+        // Add a subtle ground plane
+        const groundGeometry = new THREE.CircleGeometry(0.8, 32);
+        const groundMaterial = new THREE.MeshPhongMaterial({
+            color: 0x2a2a4a,
+            transparent: true,
+            opacity: 0.5
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.01;
+        miniScene.add(ground);
+
+        // Animation for preview
+        let previewAnimFrame;
+        function animatePreview() {
+            previewAnimFrame = requestAnimationFrame(animatePreview);
+            previewLandmark.rotation.y += 0.01;
+            miniRenderer.render(miniScene, miniCamera);
+        }
+        animatePreview();
+
+        // Store animation frame and renderer for cleanup
+        popup.dataset.animFrame = previewAnimFrame;
+        popup._miniRenderer = miniRenderer;
+    }, 50);
 
     popup.classList.remove('hidden');
 
     // Close button
     document.getElementById('popup-close').onclick = () => {
         popup.classList.add('hidden');
-        cancelAnimationFrame(parseInt(popup.dataset.animFrame));
+        if (popup.dataset.animFrame) {
+            cancelAnimationFrame(parseInt(popup.dataset.animFrame));
+        }
+        if (popup._miniRenderer) {
+            popup._miniRenderer.dispose();
+        }
     };
 
     // Check-in button
     document.getElementById('popup-checkin').onclick = () => {
         popup.classList.add('hidden');
-        cancelAnimationFrame(parseInt(popup.dataset.animFrame));
+        if (popup.dataset.animFrame) {
+            cancelAnimationFrame(parseInt(popup.dataset.animFrame));
+        }
+        if (popup._miniRenderer) {
+            popup._miniRenderer.dispose();
+        }
         performCheckIn(destination);
     };
+}
+
+// Create landmark for preview (without globe positioning)
+function createLandmarkForPreview(destination) {
+    const group = new THREE.Group();
+
+    switch (destination.id) {
+        case 'paris':
+            createEiffelTowerPreview(group);
+            break;
+        case 'newyork':
+            createStatueOfLibertyPreview(group);
+            break;
+        case 'tokyo':
+            createTokyoTowerPreview(group);
+            break;
+        case 'dubai':
+            createBurjKhalifaPreview(group);
+            break;
+        case 'sydney':
+            createSydneyOperaPreview(group);
+            break;
+        case 'rio':
+            createChristRedeemerPreview(group);
+            break;
+        case 'rome':
+            createColosseumPreview(group);
+            break;
+        case 'cairo':
+            createPyramidPreview(group);
+            break;
+        case 'london':
+            createBigBenPreview(group);
+            break;
+        case 'beijing':
+            createGreatWallPreview(group);
+            break;
+        case 'mumbai':
+            createGatewayOfIndiaPreview(group);
+            break;
+        case 'singapore':
+            createMarinaBaySandsPreview(group);
+            break;
+        default:
+            createGenericLandmarkPreview(group, destination.landmarkColor);
+    }
+
+    return group;
+}
+
+function createEiffelTowerPreview(group) {
+    const material = new THREE.MeshPhongMaterial({ color: 0xc9a227, flatShading: true });
+
+    // Base legs
+    for (let i = 0; i < 4; i++) {
+        const leg = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.4, 4), material);
+        const angle = (i * Math.PI / 2) + Math.PI / 4;
+        leg.position.set(Math.cos(angle) * 0.12, 0.2, Math.sin(angle) * 0.12);
+        leg.rotation.x = (i < 2 ? 0.15 : -0.15);
+        leg.rotation.z = (i === 0 || i === 3 ? 0.15 : -0.15);
+        group.add(leg);
+    }
+
+    // Middle section
+    const middle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.25, 4), material);
+    middle.position.y = 0.5;
+    group.add(middle);
+
+    // Top spire
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.25, 4), material);
+    spire.position.y = 0.75;
+    group.add(spire);
+
+    // Platforms
+    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.008, 8, 4), material);
+    ring1.rotation.x = Math.PI / 2;
+    ring1.position.y = 0.38;
+    group.add(ring1);
+}
+
+function createStatueOfLibertyPreview(group) {
+    const greenMat = new THREE.MeshPhongMaterial({ color: 0x4a9b7f });
+    const grayMat = new THREE.MeshPhongMaterial({ color: 0x808080 });
+    const goldMat = new THREE.MeshPhongMaterial({ color: 0xffd700 });
+
+    // Pedestal
+    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.25, 0.2), grayMat);
+    pedestal.position.y = 0.125;
+    group.add(pedestal);
+
+    // Body
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.35, 8), greenMat);
+    body.position.y = 0.425;
+    group.add(body);
+
+    // Head
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), greenMat);
+    head.position.y = 0.63;
+    group.add(head);
+
+    // Crown
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.04, 7), greenMat);
+    crown.position.y = 0.68;
+    group.add(crown);
+
+    // Torch arm
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 6), greenMat);
+    arm.position.set(0.08, 0.68, 0);
+    arm.rotation.z = -0.8;
+    group.add(arm);
+
+    // Torch
+    const torch = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.06, 6), goldMat);
+    torch.position.set(0.14, 0.78, 0);
+    group.add(torch);
+}
+
+function createTokyoTowerPreview(group) {
+    const redMat = new THREE.MeshPhongMaterial({ color: 0xff4444 });
+    const whiteMat = new THREE.MeshPhongMaterial({ color: 0xffffff });
+
+    for (let i = 0; i < 6; i++) {
+        const seg = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.04 - i * 0.005, 0.05 - i * 0.005, 0.12, 4),
+            i % 2 === 0 ? redMat : whiteMat
+        );
+        seg.position.y = 0.06 + i * 0.12;
+        group.add(seg);
+    }
+
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.012, 0.15, 6), whiteMat);
+    antenna.position.y = 0.85;
+    group.add(antenna);
+}
+
+function createBurjKhalifaPreview(group) {
+    const material = new THREE.MeshPhongMaterial({ color: 0x4fc3f7 });
+
+    for (let i = 0; i < 10; i++) {
+        const radius = 0.08 - i * 0.006;
+        const seg = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.8, radius, 0.08, 6), material);
+        seg.position.y = i * 0.08 + 0.04;
+        group.add(seg);
+    }
+
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(0.01, 0.2, 6), material);
+    spire.position.y = 0.9;
+    group.add(spire);
+}
+
+function createSydneyOperaPreview(group) {
+    const whiteMat = new THREE.MeshPhongMaterial({ color: 0xffffff });
+    const grayMat = new THREE.MeshPhongMaterial({ color: 0x808080 });
+
+    // Base
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.03, 0.25), grayMat);
+    group.add(base);
+
+    // Shells
+    for (let i = 0; i < 4; i++) {
+        const shell = new THREE.Mesh(
+            new THREE.SphereGeometry(0.12, 16, 16, 0, Math.PI * 0.6, 0, Math.PI * 0.5),
+            whiteMat
+        );
+        shell.position.set(-0.12 + i * 0.08, 0.03, 0);
+        shell.rotation.x = -0.3;
+        shell.scale.set(1, 1.3 - i * 0.15, 0.6);
+        group.add(shell);
+    }
+}
+
+function createChristRedeemerPreview(group) {
+    const whiteMat = new THREE.MeshPhongMaterial({ color: 0xe0e0e0 });
+    const grayMat = new THREE.MeshPhongMaterial({ color: 0x808080 });
+
+    // Pedestal
+    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.12), grayMat);
+    pedestal.position.y = 0.075;
+    group.add(pedestal);
+
+    // Body
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.35, 8), whiteMat);
+    body.position.y = 0.325;
+    group.add(body);
+
+    // Head
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), whiteMat);
+    head.position.y = 0.54;
+    group.add(head);
+
+    // Arms
+    const arms = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.03, 0.03), whiteMat);
+    arms.position.y = 0.45;
+    group.add(arms);
+}
+
+function createColosseumPreview(group) {
+    const material = new THREE.MeshPhongMaterial({ color: 0xd4a373 });
+
+    // Main ring
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.08, 8, 24), material);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.1;
+    group.add(ring);
+
+    // Floor
+    const floor = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 24), material);
+    floor.position.y = 0.03;
+    group.add(floor);
+
+    // Arches
+    for (let i = 0; i < 12; i++) {
+        const arch = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.08, 0.015), material);
+        const angle = (i / 12) * Math.PI * 2;
+        arch.position.set(Math.cos(angle) * 0.2, 0.15, Math.sin(angle) * 0.2);
+        arch.rotation.y = angle;
+        group.add(arch);
+    }
+}
+
+function createPyramidPreview(group) {
+    const material = new THREE.MeshPhongMaterial({ color: 0xe6c86e });
+
+    // Main pyramid
+    const pyramid = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.35, 4), material);
+    pyramid.position.y = 0.175;
+    pyramid.rotation.y = Math.PI / 4;
+    group.add(pyramid);
+
+    // Smaller pyramids
+    const small1 = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.18, 4), material);
+    small1.position.set(0.25, 0.09, 0.12);
+    small1.rotation.y = Math.PI / 4;
+    group.add(small1);
+
+    const small2 = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.14, 4), material);
+    small2.position.set(0.18, 0.07, -0.15);
+    small2.rotation.y = Math.PI / 4;
+    group.add(small2);
+}
+
+function createBigBenPreview(group) {
+    const material = new THREE.MeshPhongMaterial({ color: 0xbfa76f });
+    const clockMat = new THREE.MeshPhongMaterial({ color: 0xffffff });
+
+    // Tower
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.12), material);
+    tower.position.y = 0.35;
+    group.add(tower);
+
+    // Clock area
+    const clockArea = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 0.15), material);
+    clockArea.position.y = 0.55;
+    group.add(clockArea);
+
+    // Clock face
+    const clock = new THREE.Mesh(new THREE.CircleGeometry(0.04, 16), clockMat);
+    clock.position.set(0, 0.55, 0.076);
+    group.add(clock);
+
+    // Spire
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.18, 4), material);
+    spire.position.y = 0.75;
+    group.add(spire);
+}
+
+function createGreatWallPreview(group) {
+    const material = new THREE.MeshPhongMaterial({ color: 0x8b7355 });
+
+    // Wall segments going up
+    for (let i = 0; i < 6; i++) {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08 + Math.sin(i * 0.5) * 0.02, 0.03), material);
+        wall.position.set(i * 0.06 - 0.15, 0.05 + i * 0.03, 0);
+        group.add(wall);
+    }
+
+    // Watchtowers
+    const tower1 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.15, 0.07), material);
+    tower1.position.set(-0.15, 0.1, 0);
+    group.add(tower1);
+
+    const tower2 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.15, 0.07), material);
+    tower2.position.set(0.18, 0.23, 0);
+    group.add(tower2);
+}
+
+function createGatewayOfIndiaPreview(group) {
+    const material = new THREE.MeshPhongMaterial({ color: 0xd4a373 });
+
+    // Pillars
+    const leftPillar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.45, 0.06), material);
+    leftPillar.position.set(-0.1, 0.225, 0);
+    group.add(leftPillar);
+
+    const rightPillar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.45, 0.06), material);
+    rightPillar.position.set(0.1, 0.225, 0);
+    group.add(rightPillar);
+
+    // Arch top
+    const archTop = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.08, 0.06), material);
+    archTop.position.set(0, 0.5, 0);
+    group.add(archTop);
+
+    // Dome
+    const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(0.06, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+        material
+    );
+    dome.position.y = 0.54;
+    group.add(dome);
+}
+
+function createMarinaBaySandsPreview(group) {
+    const material = new THREE.MeshPhongMaterial({ color: 0x90caf9 });
+    const poolMat = new THREE.MeshPhongMaterial({ color: 0x00bcd4 });
+
+    // Three towers
+    for (let i = 0; i < 3; i++) {
+        const tower = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.55, 0.04), material);
+        tower.position.set(-0.1 + i * 0.1, 0.275, 0);
+        tower.rotation.z = (i - 1) * 0.03;
+        group.add(tower);
+    }
+
+    // SkyPark
+    const skyPark = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.02, 0.09), material);
+    skyPark.position.y = 0.58;
+    group.add(skyPark);
+
+    // Pool
+    const pool = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.01, 0.04), poolMat);
+    pool.position.set(0.05, 0.6, 0);
+    group.add(pool);
+}
+
+function createGenericLandmarkPreview(group, color) {
+    const material = new THREE.MeshPhongMaterial({ color: color });
+
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.06, 8), material);
+    base.position.y = 0.03;
+    group.add(base);
+
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.45, 8), material);
+    pillar.position.y = 0.28;
+    group.add(pillar);
+
+    const top = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), material);
+    top.position.y = 0.55;
+    group.add(top);
 }
 
 async function performCheckIn(destination) {
